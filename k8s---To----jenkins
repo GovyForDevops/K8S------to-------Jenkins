@@ -1,0 +1,156 @@
+pipeline {
+    agent any
+
+    environment {
+        // Global environment variables (e.g., Kubernetes config)
+        KUBE_CONFIG = '/path/to/kubeconfig'
+        DOCKER_REGISTRY = 'mydockerregistry.com'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    // Checkout the repository containing all microservices
+                    checkout scm
+                }
+            }
+        }
+
+        stage('Build and Test Microservices') {
+            matrix {
+                axes {
+                    // Define each microservice as a separate axis (change to your microservice names)
+                    axis {
+                        name 'SERVICE'
+                        values 'service1', 'service2', 'service3', 'service4'
+                    }
+                }
+
+                stages {
+                    stage('Build') {
+                        steps {
+                            script {
+                                echo "Building ${SERVICE}"
+                                // Navigate to the service directory and build it (e.g., using Maven, Gradle, etc.)
+                                dir("${SERVICE}") {
+                                    sh 'mvn clean install'  // Example for Java-based microservices
+                                }
+                            }
+                        }
+                    }
+
+                    stage('Test') {
+                        steps {
+                            script {
+                                echo "Testing ${SERVICE}"
+                                // Run unit tests for the specific service
+                                dir("${SERVICE}") {
+                                    sh 'mvn test'  // Example for Java-based microservices
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build Docker Images') {
+            matrix {
+                axes {
+                    axis {
+                        name 'SERVICE'
+                        values 'service1', 'service2', 'service3', 'service4'
+                    }
+                }
+                stages {
+                    stage('Docker Build') {
+                        steps {
+                            script {
+                                echo "Building Docker image for ${SERVICE}"
+                                // Build Docker image for each service
+                                dir("${SERVICE}") {
+                                    sh "docker build -t ${DOCKER_REGISTRY}/${SERVICE}:latest ."
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Push Docker Images') {
+            matrix {
+                axes {
+                    axis {
+                        name 'SERVICE'
+                        values 'service1', 'service2', 'service3', 'service4'
+                    }
+                }
+                stages {
+                    stage('Push to Registry') {
+                        steps {
+                            script {
+                                echo "Pushing Docker image for ${SERVICE}"
+                                // Push Docker image to the registry
+                                sh "docker push ${DOCKER_REGISTRY}/${SERVICE}:latest"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            matrix {
+                axes {
+                    axis {
+                        name 'SERVICE'
+                        values 'service1', 'service2', 'service3', 'service4'
+                    }
+                }
+                stages {
+                    stage('Deploy') {
+                        steps {
+                            script {
+                                echo "Deploying ${SERVICE} to Kubernetes"
+                                // Deploy the Docker image to Kubernetes
+                                dir("${SERVICE}") {
+                                    sh """
+                                    kubectl set image deployment/${SERVICE} ${SERVICE}=${DOCKER_REGISTRY}/${SERVICE}:latest --kubeconfig ${KUBE_CONFIG}
+                                    kubectl rollout status deployment/${SERVICE} --kubeconfig ${KUBE_CONFIG}
+                                    """
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                script {
+                    // Clean up any resources or caches if necessary
+                    echo "Cleaning up"
+                    sh 'docker system prune -f'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Cleaning up workspace'
+            deleteDir()  // Clean up workspace after each run
+        }
+
+        success {
+            echo 'Deployment Successful!'
+        }
+
+        failure {
+            echo 'Deployment Failed!'
+        }
+    }
+}
