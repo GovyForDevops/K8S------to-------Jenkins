@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     environment {
-        // Global environment variables (e.g., Kubernetes config)
         KUBE_CONFIG = '/path/to/kubeconfig'
         DOCKER_REGISTRY = 'mydockerregistry.com'
     }
@@ -11,7 +10,6 @@ pipeline {
         stage('Checkout') {
             steps {
                 script {
-                    // Checkout the repository containing all microservices
                     checkout scm
                 }
             }
@@ -20,7 +18,6 @@ pipeline {
         stage('Build and Test Microservices') {
             matrix {
                 axes {
-                    // Define each microservice as a separate axis (change to your microservice names)
                     axis {
                         name 'SERVICE'
                         values 'service1', 'service2', 'service3', 'service4'
@@ -32,7 +29,6 @@ pipeline {
                         steps {
                             script {
                                 echo "Building ${SERVICE}"
-                                // Navigate to the service directory and build it (e.g., using Maven, Gradle, etc.)
                                 dir("${SERVICE}") {
                                     sh 'mvn clean install'  // Example for Java-based microservices
                                 }
@@ -44,7 +40,6 @@ pipeline {
                         steps {
                             script {
                                 echo "Testing ${SERVICE}"
-                                // Run unit tests for the specific service
                                 dir("${SERVICE}") {
                                     sh 'mvn test'  // Example for Java-based microservices
                                 }
@@ -67,8 +62,7 @@ pipeline {
                     stage('Docker Build') {
                         steps {
                             script {
-                                echo "Building Docker image for ${SERVICE}"
-                                // Build Docker image for each service
+                                echo "Building Docker image for ${SERVICE}
                                 dir("${SERVICE}") {
                                     sh "docker build -t ${DOCKER_REGISTRY}/${SERVICE}:latest ."
                                 }
